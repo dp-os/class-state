@@ -10,6 +10,10 @@
     "scripts": {
       "build": "tsc --noEmit && unbuild"
     },
+    "dependencies": {
+      "immer": "^10.0.3",
+      "limu": "^3.7.3"
+    },
     "devDependencies": {
       "unbuild": "^1.2.1"
     }

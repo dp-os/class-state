@@ -19,6 +19,8 @@ const cachedContext = new WeakMap<Json, ContextValue>();
 // 初始化时默认的 state，未经更改的 store -> state
 const cachedInitialState = new WeakMap<any, Json>();
 
+// let _curContextState: Json | = null;
+
 export function createStoreKey(
   name: string,
   params?: Record<string, string | number>
@@ -51,6 +53,7 @@ function _getImmutableState(context: Json, key: string) {
 }
 
 export function getImmutableState(
+  // context: Json = _curContextState,
   context: Json,
   name: string,
   params?: Record<string, string | number>
@@ -87,14 +90,7 @@ function _createHandler(context: Json, storeKey: string, store: any) {
   };
 
   return {
-    get(target: any, key: string | symbol, receiver: any) {
-      // 原型上的，直接返回
-      if (
-        key === "__proto__" ||
-        key in Object.getOwnPropertyNames(target.__proto__)
-      ) {
-        return Reflect.get(target.__proto__, key, receiver);
-      }
+    get(target: any, key: string | symbol) {
       // 获取 state 数据，直接映射，理论上此时 state 不会为空
       const state = _getImmutableState(context, storeKey) || {};
       // 仅监听 $XXX 方法，更新 state
@@ -114,8 +110,11 @@ function _createHandler(context: Json, storeKey: string, store: any) {
           }
         });
       }
+      // _curContextState = context;
+      // Reflect.get(target, key)
+      // _curContextState = null;
       // 其它情况
-      return Reflect.get(state, key);
+      return Reflect.has(state, key) ? Reflect.get(state, key) : Reflect.get(target, key);
     }
   };
 }
@@ -137,7 +136,8 @@ function _getStore(
   }
   // create new store
   const store = new Store();
-  const initialState: Json = produce({ ...store }, () => {});
+  // string | number | boolean | object | array | null
+  const initialState: Json = { ...store };
   // create proxy
   proxy = new Proxy(store, _createHandler(context, storeKey, store));
   cachedInitialState.set(proxy, initialState);
@@ -154,18 +154,4 @@ export function getStore(config: iParams) {
 // 返回一个缓存的 store，没有就新建
 export function getStoreOrCreate(config: iParams) {
   return _getStore(config, true);
-}
-
-export function getState(config: iParams) {
-  return getImmutableState(config.context, config.name, config.params);
-}
-
-export function getStateOrCreate(config: iParams) {
-  const state = getImmutableState(config.context, config.name, config.params);
-  if (state) {
-    return state;
-  }
-  // 创建一个并取得初始 state
-  const store = getStoreOrCreate(config);
-  return cachedInitialState.get(store) as Json;
 }

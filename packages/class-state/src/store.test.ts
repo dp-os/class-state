@@ -1,5 +1,5 @@
 import { assert, test } from 'vitest';
-import { getStoreOrCreate, getStateOrCreate } from './store';
+import { getStoreOrCreate } from './store';
 import { createContextState } from './context';
 
 
@@ -24,7 +24,6 @@ test('base value Type', () => {
 
     user.$setName('myName')
     assert.equal(user.name, 'myName')
-    assert.equal(contextState.user, getStateOrCreate(params))
 
 });
 
@@ -54,8 +53,7 @@ test('base class', () => {
     assert.equal(user, getUser(contextState));
 
     user.$add('name');
-    // TODO
-    // assert.notEqual(user, getUser(contextState));
+    assert.notEqual(user, getUser(contextState));
 })
 
 test('Unenumerable value', () => {
@@ -88,31 +86,3 @@ test('Unenumerable value', () => {
     assert.equal(user.count, 1)
 
 })
-
-// test('base array', () => {
-//     const contextState = createContextState();
-
-//     class User {
-//         public list: string[] = []
-//         public $add(name: string) {
-//             this.list.push(name);
-//         }
-//     }
-//     const params = {
-//         context: contextState,
-//         name: 'user',
-//         Store: User
-//     }
-//     const user = getStoreOrCreate(params) as User;
-
-//     const prev = user.list;
-//     assert.equal(user.list.length, 0)
-//     assert.isUndefined(contextState.user);
-
-//     user.$add('name')
-//     assert.notEqual(prev, user.list);
-//     assert.equal(prev.length, 0);
-//     assert.equal(user.list.length, 1);
-
-//     assert.equal(contextState.user, getStateOrCreate(params))
-// })

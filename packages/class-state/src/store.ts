@@ -1,32 +1,23 @@
 import { produce } from "limu";
 
 export type Json = Record<string, any>;
-export interface Constructible {
-  __proto__?: any;
-  new (): any;
-}
-// name -> state
-type ContextKey = Record<string, Json>;
-// name -> store
-type ContextValue = Record<string, any>;
-
 export type iParams = {
   // 自定义名称
   name: string;
   // 自定义参数
   params?: Record<string, string | number>;
-  // 全局 state 上下文
-  context: ContextKey;
+  // 全局 state 上下文 name -> state
+  context: Json;
   // Class Store
   Store: new () => any;
 };
+// name -> store proxy
+type ContextValue = Record<string, any>;
 
 // 缓存 context
-const cachedContext = new WeakMap<ContextKey, ContextValue>();
+const cachedContext = new WeakMap<Json, ContextValue>();
 // 初始化时默认的 state，未经更改的 store -> state
 const cachedInitialState = new WeakMap<any, Json>();
-
-function noop() {}
 
 export function createStoreKey(
   name: string,
@@ -43,7 +34,7 @@ export function createStoreKey(
   return name;
 }
 
-function _getImmutableState(context: ContextKey, key: string) {
+function _getImmutableState(context: Json, key: string) {
   if (context[key]) {
     // 变更后的 state
     return context[key];
@@ -60,7 +51,7 @@ function _getImmutableState(context: ContextKey, key: string) {
 }
 
 export function getImmutableState(
-  context: ContextKey,
+  context: Json,
   name: string,
   params?: Record<string, string | number>
 ) {
@@ -68,10 +59,32 @@ export function getImmutableState(
   return _getImmutableState(context, key);
 }
 
-function _createHandler(instance: any, context: ContextKey, storeKey: string) {
-  // 获取 state 数据，直接映射
-  // 理论上 state 不会为空
-  const getState = () => _getImmutableState(context, storeKey) || {};
+function _createCtx(draft: Json, store: any) {
+  return new Proxy(draft, {
+    get(target, key) {
+      return Reflect.get(key in target ? target : store, key);
+    },
+    set(target, key, value) {
+      const property = Object.getOwnPropertyDescriptor(store, key);
+      return Reflect.set(
+        property && property.enumerable ? target : store,
+        key,
+        value
+      );
+    }
+  });
+}
+
+function _createHandler(context: Json, storeKey: string, store: any) {
+  // 更新全局 state
+  const setState = (nextState: Json) => {
+    context[storeKey] = nextState;
+    const maps = cachedContext.get(context) as ContextValue;
+    // 更新之后，删除 initial state 缓存
+    cachedInitialState.delete(maps[storeKey]);
+    // 更新 store 的代理实例，原始实例的内存指向不变
+    maps[storeKey] = new Proxy(store, _createHandler(context, storeKey, store));
+  };
 
   return {
     get(target: any, key: string | symbol, receiver: any) {
@@ -82,7 +95,8 @@ function _createHandler(instance: any, context: ContextKey, storeKey: string) {
       ) {
         return Reflect.get(target.__proto__, key, receiver);
       }
-      const state = getState();
+      // 获取 state 数据，直接映射，理论上此时 state 不会为空
+      const state = _getImmutableState(context, storeKey) || {};
       // 仅监听 $XXX 方法，更新 state
       if (
         typeof key === "string" &&
@@ -90,17 +104,12 @@ function _createHandler(instance: any, context: ContextKey, storeKey: string) {
         typeof target[key] === "function"
       ) {
         return new Proxy(target[key], {
-          apply(target, thisArg, argArray) {
-            let returnValue = true;
+          apply(target, _, argArray) {
+            let returnValue = undefined;
             const nextState = produce(state, (draft) => {
-              returnValue = target.apply(draft, argArray);
+              returnValue = target.apply(_createCtx(draft, store), argArray);
             });
-            if (nextState !== state) {
-              context[storeKey] = nextState;
-              // 更新之后，删除 initial state 缓存
-              cachedInitialState.delete(instance);
-              // TODO: 更新 store 的代理实例，原始实例的内存指向不变
-            }
+            if (nextState !== state) setState(nextState);
             return returnValue;
           }
         });
@@ -111,7 +120,7 @@ function _createHandler(instance: any, context: ContextKey, storeKey: string) {
   };
 }
 
-// 返回一个 store
+// 返回一个 store 的 proxy 对象，state 变更，proxy 也会更新
 function _getStore(
   { name, context, Store, params }: iParams,
   autoCreate?: boolean
@@ -122,17 +131,19 @@ function _getStore(
     cachedContext.set(context, maps);
   }
   const storeKey = createStoreKey(name, params);
-  let instance = maps[storeKey];
-  if (instance || !autoCreate) {
-    return instance;
+  let proxy = maps[storeKey];
+  if (proxy || !autoCreate) {
+    return proxy;
   }
   // create new store
   const store = new Store();
-  const initialState: Json = produce({ ...store }, noop);
-  instance = new Proxy(store, _createHandler(instance, context, storeKey));
-  cachedInitialState.set(instance, initialState);
-  maps[storeKey] = instance;
-  return instance;
+  const initialState: Json = produce({ ...store }, () => {});
+  // create proxy
+  proxy = new Proxy(store, _createHandler(context, storeKey, store));
+  cachedInitialState.set(proxy, initialState);
+  maps[storeKey] = proxy;
+
+  return proxy;
 }
 
 // 返回一个缓存的 store

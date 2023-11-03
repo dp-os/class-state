@@ -18,8 +18,11 @@ type ContextValue = Record<string, any>;
 const cachedContext = new WeakMap<Json, ContextValue>();
 // 初始化时默认的 state，未经更改的 store -> state
 const cachedInitialState = new WeakMap<any, Json>();
-
-// let _curContextState: Json | = null;
+// 临时的 context 环境，使用场景：get 访问器调用
+let tempContext: Json | null = null
+// 可接受的枚举属性类型
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify
+const supportedEnumerableTypes = ['Array', 'Boolean', 'Null', 'Number', 'Object', 'String']
 
 export function createStoreKey(
   name: string,
@@ -36,7 +39,7 @@ export function createStoreKey(
   return name;
 }
 
-function _getImmutableState(context: Json, key: string) {
+function _getImmutableState(context: Json, key: string): Json | undefined {
   if (context[key]) {
     // 变更后的 state
     return context[key];
@@ -53,7 +56,6 @@ function _getImmutableState(context: Json, key: string) {
 }
 
 export function getImmutableState(
-  // context: Json = _curContextState,
   context: Json,
   name: string,
   params?: Record<string, string | number>
@@ -65,34 +67,30 @@ export function getImmutableState(
 function _createCtx(draft: Json, store: any) {
   return new Proxy(draft, {
     get(target, key) {
-      return Reflect.get(key in target ? target : store, key);
+      return Reflect.get((key in target) ? target : store, key)
     },
     set(target, key, value) {
-      const property = Object.getOwnPropertyDescriptor(store, key);
-      return Reflect.set(
-        property && property.enumerable ? target : store,
-        key,
-        value
-      );
+      const property = Object.getOwnPropertyDescriptor(store, key)
+      return Reflect.set((property && property.enumerable) ? target : store, key, value)
     }
-  });
+  })
 }
 
 function _createHandler(context: Json, storeKey: string, store: any) {
+  // 获取 state 数据，直接映射，理论上此时 state 不会为空
+  const getState = () => _getImmutableState(context, storeKey) || {}
   // 更新全局 state
   const setState = (nextState: Json) => {
     context[storeKey] = nextState;
-    const maps = cachedContext.get(context) as ContextValue;
+    const maps = cachedContext.get(context) as ContextValue
     // 更新之后，删除 initial state 缓存
     cachedInitialState.delete(maps[storeKey]);
     // 更新 store 的代理实例，原始实例的内存指向不变
     maps[storeKey] = new Proxy(store, _createHandler(context, storeKey, store));
-  };
-
+  }
+  
   return {
     get(target: any, key: string | symbol) {
-      // 获取 state 数据，直接映射，理论上此时 state 不会为空
-      const state = _getImmutableState(context, storeKey) || {};
       // 仅监听 $XXX 方法，更新 state
       if (
         typeof key === "string" &&
@@ -102,21 +100,41 @@ function _createHandler(context: Json, storeKey: string, store: any) {
         return new Proxy(target[key], {
           apply(target, _, argArray) {
             let returnValue = undefined;
-            const nextState = produce(state, (draft) => {
+            // 确保是最新的 state 数据
+            const nextState = produce(getState(), (draft) => {
               returnValue = target.apply(_createCtx(draft, store), argArray);
             });
-            if (nextState !== state) setState(nextState);
+            if (nextState !== state) setState(nextState)
             return returnValue;
           }
         });
       }
-      // _curContextState = context;
-      // Reflect.get(target, key)
-      // _curContextState = null;
-      // 其它情况
-      return Reflect.has(state, key) ? Reflect.get(state, key) : Reflect.get(target, key);
+      // 仅取值
+      const state = getState()
+      if (key in state) {
+        // 可枚举属性
+        tempContext = null
+        return Reflect.get(state, key)
+      }
+      // 不可枚举属性，从实例上取
+      tempContext = context
+      return Reflect.get(target, key)
     }
   };
+}
+
+function _getInitialState(store: any) {
+  const state: Json = Object.create(null)
+  for (const key of Object.keys(store)) {
+    const value = store[key]
+    const type = Object.prototype.toString.call(value).slice(8, -1)
+    if (supportedEnumerableTypes.includes(type)) {
+      state[key] = value
+    } else {
+      throw new Error(`Unsupported property type ${type}: ${store.constructor.name}.${key}`);      
+    }
+  }
+  return state
 }
 
 // 返回一个 store 的 proxy 对象，state 变更，proxy 也会更新
@@ -136,8 +154,7 @@ function _getStore(
   }
   // create new store
   const store = new Store();
-  // string | number | boolean | object | array | null
-  const initialState: Json = { ...store };
+  const initialState = _getInitialState(store);
   // create proxy
   proxy = new Proxy(store, _createHandler(context, storeKey, store));
   cachedInitialState.set(proxy, initialState);
@@ -154,4 +171,13 @@ export function getStore(config: iParams) {
 // 返回一个缓存的 store，没有就新建
 export function getStoreOrCreate(config: iParams) {
   return _getStore(config, true);
+}
+
+// 返回一个不指定 context 的 store，没有就新建
+// 使用场景：get 访问器调用
+export function getStoreAuto(config: Pick<iParams, 'name' | 'params' | 'Store'>) {
+  if (!tempContext) {
+    return undefined
+  }
+  return _getStore({ ...config, context: tempContext }, true)
 }

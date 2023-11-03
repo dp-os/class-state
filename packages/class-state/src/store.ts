@@ -101,7 +101,8 @@ function _createHandler(context: Json, storeKey: string, store: any) {
           apply(target, _, argArray) {
             let returnValue = undefined;
             // 确保是最新的 state 数据
-            const nextState = produce(getState(), (draft) => {
+            const state = getState();
+            const nextState = produce(state, (draft) => {
               returnValue = target.apply(_createCtx(draft, store), argArray);
             });
             if (nextState !== state) setState(nextState)

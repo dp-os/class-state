@@ -1,88 +1,311 @@
 import { assert, test } from 'vitest';
-import { getStoreOrCreate } from './store';
+import { getStoreOrCreate, getStoreAuto } from './store';
 import { createContextState } from './context';
 
 
 test('base value Type', () => {
-    const contextState = createContextState();
+    const context = createContextState();
 
     class User {
-        public name = ''
-        public $setName(name: string) {
-            this.name = name
-        }
-    }
-    const params = {
-        context: contextState,
-        name: 'user',
-        Store: User
-    }
-    const user = getStoreOrCreate(params) as User;
-
-    assert.equal(user.name, '')
-    assert.isUndefined(contextState.user);
-
-    user.$setName('myName')
-    assert.equal(user.name, 'myName')
-
-});
-
-class User {
-    public list: string[] = []
-    public $add(name: string) {
-        this.list.push(name);
-    }
-}
-
-function getUser (context: Record<string, any>) {
-
-    const params = {
-        context,
-        name: 'user',
-        Store: User
-    }
-    const user = getStoreOrCreate(params) as User;
-
-    return user;
-}
-
-test('base class', () => {
-    const contextState = createContextState();
-    const user = getUser(contextState);
-
-    assert.equal(user, getUser(contextState));
-
-    user.$add('name');
-    assert.notEqual(user, getUser(contextState));
-})
-
-test('Unenumerable value', () => {
-    const contextState = createContextState();
-    class User {
-        public _count = 0
-        public count = 0;
-        public constructor () {
-            Object.defineProperty(this, '_count', {
+        name = ''
+        age = 0
+        online = false
+        public constructor() {
+            Object.defineProperty(this, 'online', {
                 enumerable: false
             })
         }
-        public $add() {
-            this._count++;
-            this.count++;
+        public $setName(name: string) {
+            this.name = name;
+        }
+        public $setAge(age: number) {
+            this.age = age;
         }
     }
-    const params = {
-        context: contextState,
-        name: 'user',
-        Store: User
-    }
-    const user = getStoreOrCreate(params) as User;
 
-    // TODO: 
-    assert.equal(user._count, 0)
-    assert.equal(user.count, 0)
-    user.$add();
-    assert.equal(user._count, 1)
-    assert.equal(user.count, 1)
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    })
+    assert.equal(userStore.name, '')
+    assert.equal(userStore.age, 0)
+    assert.equal(userStore.online, false)
+    assert.isUndefined(context.user);
+
+    userStore.online = true
+    assert.equal(userStore.online, true)
+
+    userStore.$setName('test');
+    assert.equal(userStore.name, 'test')
+    assert.equal(userStore.age, 0);
+    assert.equal(userStore.online, true)
+
+    assert.deepStrictEqual(context.user, {
+        name: 'test',
+        age: 0,
+    })
+    userStore.$setAge(100);
+    assert.equal(userStore.name, 'test')
+    assert.equal(userStore.age, 100);
+    assert.equal(userStore.online, true)
+    assert.deepStrictEqual(context.user, {
+        name: 'test',
+        age: 100,
+    })
+});
+
+test('Immutable object', () => {
+    const context = createContextState();
+
+    class User {
+        public data = {
+            name: '',
+            age: 0
+        }
+        public online = false;
+        public $setOnline(online: boolean) {
+            this.online = online;
+        }
+        public $setName(name: string) {
+            this.data.name = name;
+        }
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+    let oldData = userStore.data;
+    assert.equal(oldData.name, '')
+    assert.equal(oldData.age, 0);
+    assert.equal(userStore.online, false);
+
+    userStore.$setName('test');
+    assert.equal(userStore.data.name, 'test')
+    assert.equal(userStore.data.age, 0);
+    assert.equal(userStore.online, false);
+    assert.notEqual(oldData, userStore.data);
+
+    oldData = userStore.data;
+    userStore.$setOnline(true);
+    assert.equal(userStore.data.name, 'test')
+    assert.equal(userStore.data.age, 0);
+    assert.equal(userStore.online, true);
+    assert.equal(oldData, userStore.data);
 
 })
+
+test('Is this pointing normal', () => {
+    const context = createContextState();
+
+    class User {
+        public name = ''
+        public age = 0
+        public text = '';
+
+        public $setAge(age: number) {
+            this.age = age;
+            this.$updateText();
+        }
+        public $setName(name: string) {
+            this.name = name;
+            this.$updateText();
+        }
+        public $updateText() {
+            this.text = `name: ${this.name}, age: ${this.age}`;
+        }
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+
+    userStore.$setName('test');
+    assert.equal(userStore.text, 'name: test, age: 0');
+    assert.equal(userStore.name, 'test');
+    assert.equal(userStore.age, 0);
+})
+
+test('State modification delay', () => {
+    const context = createContextState();
+
+    class User {
+        public name = ''
+        public age = 0
+
+        public $setAge(age: number) {
+            this.age = age;
+        }
+        public $setName(name: string) {
+            this.name = name;
+        }
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+    const setAge = userStore.$setAge.bind(userStore);
+
+
+    userStore.$setName('test');
+    assert.equal(userStore.name, 'test');
+    assert.equal(userStore.age, 0);
+
+    userStore.$setAge(100);
+    assert.equal(userStore.name, 'test');
+    assert.equal(userStore.age, 100);
+
+    setAge(200);
+    assert.equal(userStore.name, 'test');
+    assert.equal(userStore.age, 200);
+})
+test('Commit function return value', () => {
+    const context = createContextState();
+    class User {
+        public age = 0
+
+        public $setAge(age: number) {
+            if (age > 18) {
+                this.age = age;
+                return true
+            }
+            return false
+        }
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+
+    assert.isFalse(userStore.$setAge(10))
+    assert.equal(userStore.age, 0);
+    assert.isTrue(userStore.$setAge(20))
+    assert.equal(userStore.age, 20);
+})
+
+test('Commit function args', () => {
+    const context = createContextState();
+    class User {
+        public list: string[] = []
+        public $set(...names: string[]) {
+            this.list = names;
+        }
+
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+    userStore.$set('test1', 'test2');
+    assert.deepEqual(userStore.list, ['test1', 'test2']);
+
+    userStore.$set('test1', 'test2', 'test3');
+    assert.deepEqual(userStore.list, ['test1', 'test2', 'test3']);
+
+})
+
+
+test('Multiple instances', () => {
+    const context = createContextState();
+    class Blog {
+        public text = '';
+        public $setText(text: string) {
+            this.text = text;
+        }
+    }
+    class User {
+        public uid = 0;
+        public get blog(): Blog {
+            return getStoreAuto({
+                name: 'blog',
+                Store: Blog,
+            })
+        }
+        public $send(uid: number, text: string) {
+            this.uid = uid;
+            this.blog.$setText(text);
+        }
+    }
+    const userStore = getStoreOrCreate({
+        context,
+        name: 'user',
+        Store: User,
+    });
+
+    // TODO
+    // userStore.$send(1, 'test');
+    // assert.equal(userStore.uid, 1);
+    // assert.equal(userStore.blog.text, 'test')
+
+})
+
+test('Correct value type', () => {
+    const context = createContextState();
+    class User {
+        public name = '';
+        public age = 100
+        public online = true
+        public text: string | null = null
+        public list: string[] = []
+        public obj = {}
+    }
+
+
+    assert.doesNotThrow(() => {
+        getStoreOrCreate({
+            context,
+            name: 'user',
+            Store: User,
+        });
+    })
+
+});
+
+test('Wrong value type', () => {
+    const context = createContextState();
+    const values = [
+        undefined,
+        new Date(),
+        new Map(),
+        new Set(),
+    ];
+    values.forEach((value, index) => {
+        const type = Object.prototype.toString.call(value).slice(8, -1)
+        class User {
+            public value = value;
+        }
+
+        assert.Throw(() => {
+            getStoreOrCreate({
+                context,
+                name: 'user' + index,
+                Store: User,
+            });
+        }, `Unsupported property type ${type}: User.value`)
+    })
+
+});
+
+
+test('Wrong class type', () => {
+    const context = createContextState();
+    class Blog { }
+    class User {
+        public blog = new Blog();
+    }
+
+    // TODO: 
+    // assert.Throw(() => {
+    //     getStoreOrCreate({
+    //         context,
+    //         name: 'user',
+    //         Store: User,
+    //     });
+    // }, 'Error: Unsupported property type Class: User.blog')
+
+});

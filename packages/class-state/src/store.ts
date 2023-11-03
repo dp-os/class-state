@@ -182,3 +182,27 @@ export function getStoreAuto(config: Pick<iParams, 'name' | 'params' | 'Store'>)
   }
   return _getStore({ ...config, context: tempContext }, true)
 }
+
+
+type ClassStateConstructor = {
+  storeName: string;
+  new (): any
+}
+
+interface Params<T extends ClassStateConstructor>{
+  Store: T;
+}
+
+function get <T extends ClassStateConstructor>(params: Params<T>): InstanceType<T> {
+  const store = new params.Store();
+
+  return store;
+}
+
+class User {
+  public static storeName = 'user';
+  public name = ''
+}
+get({
+  Store: User,
+}).name

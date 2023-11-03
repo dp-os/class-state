@@ -72,6 +72,7 @@ function _createHandler(instance: any, context: ContextKey, storeKey: string) {
   // 获取 state 数据，直接映射
   // 理论上 state 不会为空
   const getState = () => _getImmutableState(context, storeKey) || {};
+
   return {
     get(target: any, key: string | symbol, receiver: any) {
       // 原型上的，直接返回
@@ -98,6 +99,7 @@ function _createHandler(instance: any, context: ContextKey, storeKey: string) {
               context[storeKey] = nextState;
               // 更新之后，删除 initial state 缓存
               cachedInitialState.delete(instance);
+              // TODO: 更新 store 的代理实例，原始实例的内存指向不变
             }
             return returnValue;
           }

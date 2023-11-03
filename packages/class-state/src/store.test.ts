@@ -17,7 +17,7 @@ test('base value Type', () => {
         name: 'user',
         Store: User
     }
-    const user = getStoreOrCreate<User>(params);
+    const user = getStoreOrCreate(params) as User;
 
     assert.equal(user.name, '')
     assert.isUndefined(contextState.user);
@@ -26,34 +26,76 @@ test('base value Type', () => {
     assert.equal(user.name, 'myName')
     assert.equal(contextState.user, getStateOrCreate(params))
 
+});
+
+class User {
+    public list: string[] = []
+    public $add(name: string) {
+        this.list.push(name);
+    }
+}
+
+function getUser (context: Record<string, any>) {
+
+    const params = {
+        context,
+        name: 'user',
+        Store: User
+    }
+    const user = getStoreOrCreate(params) as User;
+
+    return user;
+}
+
+test('base class', () => {
+    const contextState = createContextState();
+    const user = getUser(contextState);
+
+    assert.equal(user, getUser(contextState));
+
+    user.$add('name');
+    // TODO
+    // assert.notEqual(user, getUser(contextState));
 })
 
+test('Unenumerable value', () => {
+    const contextState = createContextState();
+    class User {
+        public _count = 0
+        public count = 0;
+        public constructor () {
+            Object.defineProperty(this, '_count', {
+                enumerable: false
+            })
+        }
+        public $add() {
+            this._count++;
+            this.count++;
+        }
+    }
+    const params = {
+        context: contextState,
+        name: 'user',
+        Store: User
+    }
+    const user = getStoreOrCreate(params) as User;
+
+    // TODO: 
+    assert.equal(user._count, 0)
+    assert.equal(user.count, 0)
+    user.$add();
+    assert.equal(user._count, 1)
+    assert.equal(user.count, 1)
+
+})
 
 // test('base array', () => {
 //     const contextState = createContextState();
 
-//     const testState  = {
-//         user: {
-//             list: []
-//         }
-//     }
-//     // {...new User()}
-//     // $ 打头的方法约定变更 -> 每一次变化的时候 state 要生成一个新的对象 nextState
-//     // produce(new Proxy(testState.user), () => {
-//     // 
-//     // })
 //     class User {
 //         public list: string[] = []
 //         public $add(name: string) {
 //             this.list.push(name);
-//             // const nextState = produce(state,  () => {
-//                 // user.$add()
-//             // }) 
-//             // context[name].
-//             // const cur = new Proxy(baseState);
-//             // const nextState = produce(cur, (draft) => {
-//             //      this.$add.call(cur, ...args);
-//             //   });
 //         }
 //     }
 //     const params = {
@@ -61,7 +103,7 @@ test('base value Type', () => {
 //         name: 'user',
 //         Store: User
 //     }
-//     const user = getStoreOrCreate<User>(params);
+//     const user = getStoreOrCreate(params) as User;
 
 //     const prev = user.list;
 //     assert.equal(user.list.length, 0)
@@ -70,19 +112,7 @@ test('base value Type', () => {
 //     user.$add('name')
 //     assert.notEqual(prev, user.list);
 //     assert.equal(prev.length, 0);
-//     console.log('>>>>>>', user.list, user.list.length)
 //     assert.equal(user.list.length, 1);
 
 //     assert.equal(contextState.user, getStateOrCreate(params))
 // })
-
-// /**
-//  * app.vue
-//  *      - user1.list('user -> contextState.user.list')
-//  *      - user2.list('user -> contextState.user.list')
-//  *      - user3.list('user -> contextState.user.list')
-//  *          - > commit list.push('1')
-//  *          - user1.list -> ['1']
-//  *          - user2.list -> ['1']
-//  *          - user3.list -> ['1']
-//  */

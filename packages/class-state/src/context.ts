@@ -7,7 +7,9 @@ export interface ContextStateOptions {
   observable?: (data: any) => any;
 }
 export function createContextState(options: ContextStateOptions = {}): ContextState {
-  return options.state ? options.state : {
+  const { state, observable } = options;
+  const currentState = state || {
     __rootState: true
   };
+  return observable ? observable(currentState) : currentState;
 }

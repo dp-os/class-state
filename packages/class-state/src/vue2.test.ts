@@ -1,25 +1,33 @@
-import Vue2, { reactive, watch } from 'vue2';
+import { reactive, watch } from 'vue2';
 
 import { test,assert } from 'vitest';
 import { getStoreOrCreate } from './store';
 import { createContextState } from './context';
 
+test('vue2 reactive', () => {
+    let isChanged = false;
+    const xU = reactive({ name: 'test' });
+    watch(() => xU.name, () => {
+        isChanged = true;
+    });
+    // TODO
+    xU.name = 'test2';
+    assert.isTrue(isChanged);
+})
+
 test('base', () => {
-    // {}
-    // {}
-    const context = reactive(createContextState());
+    const context = createContextState({
+        observable: reactive
+    });
 
     class User {
+        public static storeName = 'user';
         name = 'test';
         public $set(name: string) {
             this.name = name;
         }
     }
-    const userStore = getStoreOrCreate({
-        name: 'user',
-        context,
-        Store: User
-    });
+    const userStore = getStoreOrCreate({ context, Store: User });
     let isChanged = false;
     watch(() => {
         return userStore.name

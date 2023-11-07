@@ -17,9 +17,6 @@ importers:
 
   packages/class-state:
     dependencies:
-      immer:
-        specifier: ^10.0.3
-        version: 10.0.3
       limu:
         specifier: ^3.7.3
         version: 3.7.3
@@ -29,7 +26,7 @@ importers:
         version: 1.2.1
       vue2:
         specifier: npm:vue@^2.7.14
-        version: /vue@2.7.15
+        version: /vue@2.7.14
 
 packages:
 
@@ -883,8 +880,8 @@ packages:
       pretty-format: 29.7.0
     dev: true
 
-  /@vue/compiler-sfc@2.7.15:
-    resolution: {integrity: sha512-FCvIEevPmgCgqFBH7wD+3B97y7u7oj/Wr69zADBf403Tui377bThTjBvekaZvlRr4IwUAu3M6hYZeULZFJbdYg==}
+  /@vue/compiler-sfc@2.7.14:
+    resolution: {integrity: sha512-aNmNHyLPsw+sVvlQFQ2/8sjNuLtK54TC6cuKnVzAY93ks4ZBrvwQSnkkIh7bsbNhum5hJBS00wSDipQ937f5DA==}
     dependencies:
       '@babel/parser': 7.23.0
       postcss: 8.4.31
@@ -1297,10 +1294,6 @@ packages:
     resolution: {integrity: sha512-MAb38BcSbH0eHNBxn7ql2NH/kX33OkB3lZ1BNdh7ENeRChHTYsTvWrMubiIAMNS2llXEEgZ1MUOBtXChP3kaFQ==}
     engines: {node: '>= 4'}
     dev: true
-
-  /immer@10.0.3:
-    resolution: {integrity: sha512-pwupu3eWfouuaowscykeckFmVTpqbzW+rXFCX8rQLkZzM9ftBmU/++Ra+o+L27mz03zJTlyV4UUr+fdKNffo4A==}
-    dev: false
 
   /inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
@@ -1994,10 +1987,10 @@ packages:
       - terser
     dev: true
 
-  /vue@2.7.15:
-    resolution: {integrity: sha512-a29fsXd2G0KMRqIFTpRgpSbWaNBK3lpCTOLuGLEDnlHWdjB8fwl6zyYZ8xCrqkJdatwZb4mGHiEfJjnw0Q6AwQ==}
+  /vue@2.7.14:
+    resolution: {integrity: sha512-b2qkFyOM0kwqWFuQmgd4o+uHGU7T+2z3T+WQp8UBjADfEv2n4FEMffzBmCKNP0IGzOEEfYjvtcC62xaSKeQDrQ==}
     dependencies:
-      '@vue/compiler-sfc': 2.7.15
+      '@vue/compiler-sfc': 2.7.14
       csstype: 3.1.2
     dev: true
 

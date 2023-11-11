@@ -1,22 +1,20 @@
 {
-    "name": "genesis-store",
-    "version": "0.1.10-alpha.1",
-    "type": "module",
-    "types": "./dist/index.d.ts",
-    "license": "MIT",
-    "exports": {
-      ".": "./dist/index.mjs"
-    },
-    "scripts": {
-      "build": "tsc --noEmit && unbuild"
-    },
-    "dependencies": {
-      "immer": "^10.0.3",
-      "limu": "^3.7.3"
-    },
-    "devDependencies": {
-      "vue2": "npm:vue@^2.7.14",
-      "unbuild": "^1.2.1"
-    }
+  "name": "genesis-store",
+  "version": "0.1.10-alpha.1",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs"
+  },
+  "scripts": {
+    "build": "tsc --noEmit && unbuild"
+  },
+  "dependencies": {
+    "limu": "^3.7.3"
+  },
+  "devDependencies": {
+    "vue2": "npm:vue@^2.7.14",
+    "unbuild": "^1.2.1"
   }
-  
+}

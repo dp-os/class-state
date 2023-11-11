@@ -7,6 +7,7 @@ test('base value Type', () => {
     const context = createContextState();
 
     class User {
+        public static storeName = 'user';
         name = ''
         age = 0
         online = false
@@ -25,7 +26,6 @@ test('base value Type', () => {
 
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     })
     assert.equal(userStore.name, '')
@@ -59,6 +59,7 @@ test('Immutable object', () => {
     const context = createContextState();
 
     class User {
+        public static storeName = 'user';
         public data = {
             name: '',
             age: 0
@@ -73,7 +74,6 @@ test('Immutable object', () => {
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
     let oldData = userStore.data;
@@ -100,6 +100,7 @@ test('Is this pointing normal', () => {
     const context = createContextState();
 
     class User {
+        public static storeName = 'user';
         public name = ''
         public age = 0
         public text = '';
@@ -118,7 +119,6 @@ test('Is this pointing normal', () => {
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
 
@@ -132,6 +132,7 @@ test('State modification delay', () => {
     const context = createContextState();
 
     class User {
+        public static storeName = 'user';
         public name = ''
         public age = 0
 
@@ -144,7 +145,6 @@ test('State modification delay', () => {
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
     const setAge = userStore.$setAge.bind(userStore);
@@ -165,6 +165,7 @@ test('State modification delay', () => {
 test('Commit function return value', () => {
     const context = createContextState();
     class User {
+        public static storeName = 'user';
         public age = 0
 
         public $setAge(age: number) {
@@ -177,7 +178,6 @@ test('Commit function return value', () => {
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
 
@@ -190,6 +190,7 @@ test('Commit function return value', () => {
 test('Commit function args', () => {
     const context = createContextState();
     class User {
+        public static storeName = 'user';
         public list: string[] = []
         public $set(...names: string[]) {
             this.list = names;
@@ -198,7 +199,6 @@ test('Commit function args', () => {
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
     userStore.$set('test1', 'test2');
@@ -213,40 +213,41 @@ test('Commit function args', () => {
 test('Multiple instances', () => {
     const context = createContextState();
     class Blog {
+        public static storeName = 'blog';
         public text = '';
         public $setText(text: string) {
             this.text = text;
         }
     }
     class User {
+        public static storeName = 'user';
         public uid = 0;
-        public get blog(): Blog {
+        public get blog() {
             return getStoreAuto({
-                name: 'blog',
                 Store: Blog,
             })
         }
         public $send(uid: number, text: string) {
             this.uid = uid;
-            this.blog.$setText(text);
+            this.blog?.$setText(text);
         }
     }
     const userStore = getStoreOrCreate({
         context,
-        name: 'user',
         Store: User,
     });
 
-    // TODO
-    // userStore.$send(1, 'test');
-    // assert.equal(userStore.uid, 1);
-    // assert.equal(userStore.blog.text, 'test')
+    userStore.$send(1, 'test');
+    assert.equal(userStore.uid, 1);
+    assert.isNotNull(userStore.blog);
+    assert.equal(userStore.blog?.text, 'test')
 
 })
 
 test('Correct value type', () => {
     const context = createContextState();
     class User {
+        public static storeName = 'user';
         public name = '';
         public age = 100
         public online = true
@@ -259,7 +260,6 @@ test('Correct value type', () => {
     assert.doesNotThrow(() => {
         getStoreOrCreate({
             context,
-            name: 'user',
             Store: User,
         });
     })
@@ -277,13 +277,13 @@ test('Wrong value type', () => {
     values.forEach((value, index) => {
         const type = Object.prototype.toString.call(value).slice(8, -1)
         class User {
+            public static storeName = 'user' + index;
             public value = value;
         }
 
         assert.Throw(() => {
             getStoreOrCreate({
                 context,
-                name: 'user' + index,
                 Store: User,
             });
         }, `Unsupported property type ${type}: User.value`)
@@ -296,16 +296,15 @@ test('Wrong class type', () => {
     const context = createContextState();
     class Blog { }
     class User {
+        public static storeName = 'user';
         public blog = new Blog();
     }
 
-    // TODO: 
-    // assert.Throw(() => {
-    //     getStoreOrCreate({
-    //         context,
-    //         name: 'user',
-    //         Store: User,
-    //     });
-    // }, 'Error: Unsupported property type Class: User.blog')
+    assert.Throw(() => {
+        getStoreOrCreate({
+            context,
+            Store: User,
+        });
+    }, 'Unsupported property type Blog: User.blog')
 
 });

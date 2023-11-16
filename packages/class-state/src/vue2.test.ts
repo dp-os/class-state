@@ -1,4 +1,4 @@
-import { reactive, watch, ref, nextTick } from 'vue2';
+import { reactive, watch, nextTick } from 'vue2';
 
 import { test,assert } from 'vitest';
 import { getStoreOrCreate } from './store';

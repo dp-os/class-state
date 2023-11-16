@@ -1,10 +1,10 @@
-import { reactive, watch } from 'vue2';
+import { reactive, watch, ref, nextTick } from 'vue2';
 
 import { test,assert } from 'vitest';
 import { getStoreOrCreate } from './store';
 import { createContextState } from './context';
 
-test('vue2 reactive', () => {
+test('vue2 reactive', async () => {
     let isChanged = false;
     const xU = reactive({ name: 'test' });
     watch(() => xU.name, () => {
@@ -12,10 +12,11 @@ test('vue2 reactive', () => {
     });
     // TODO
     xU.name = 'test2';
+    await nextTick();
     assert.isTrue(isChanged);
 })
 
-test('base', () => {
+test('base', async () => {
     const context = createContextState({
         observable: reactive
     });
@@ -33,8 +34,11 @@ test('base', () => {
         return userStore.name
     }, () => {
         isChanged = true;
+    }, {
+        flush: 'sync'
     })
     // TODO
     userStore.$set('test2')
+    await nextTick();
     assert.isTrue(isChanged);
 })

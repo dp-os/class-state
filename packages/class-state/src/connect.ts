@@ -52,8 +52,7 @@ export class StoreContext<T> {
     /**
      * Library private method, not available externally
      */
-    public _setState(nextState: any) {
-        if (this.state === nextState) return;
+    public _setState(nextState: Record<string, any>) {
         const { _stateContext, fullPath } = this;
         if (_stateContext) {
             _stateContext.updateState(fullPath, nextState);
@@ -150,15 +149,16 @@ function proxyCommit(commitFunc: Function, connectContext: StoreContext<any>) {
         const prevState = connectContext.state;
         let result;
         const nextState = produce(prevState, (draft) => {
+            connectContext._drafting = true;
+            connectContext.state = draft;
             try {
-                connectContext._drafting = true;
-                connectContext.state = draft;
                 result = commitFunc.apply(connectContext._proxy, args)
-            } catch (e) {
-                throw e;
-            } finally {
-                connectContext.state = prevState;
                 connectContext._drafting = false;
+                connectContext.state = prevState;
+            } catch (e) {
+                connectContext._drafting = false;
+                connectContext.state = prevState;
+                throw e;
             }
         });
         connectContext._setState(nextState);

@@ -3,7 +3,7 @@ import { test, assert } from 'vitest'
 import { connectState } from './connect';
 import { createState } from './create'
 
-test.only('base', async () => {
+test('base', async () => {
     const state = createState({
         proxy: reactive,
         set: Vue.set,

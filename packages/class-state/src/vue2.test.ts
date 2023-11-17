@@ -1,11 +1,11 @@
 import Vue, { reactive, watch, nextTick } from 'vue2';
 import { test, assert } from 'vitest'
-import { connectState, connectCurrent } from './connect';
+import { connectState } from './connect';
 import { createState } from './create'
 
 test.only('base', async () => {
     const state = createState({
-        proxy: Vue.observable,
+        proxy: reactive,
         set: Vue.set,
         del: Vue.delete
     })

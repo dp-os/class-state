@@ -1,5 +1,5 @@
 import { test, assert } from 'vitest'
-import { connectState, connectCurrent } from './connect';
+import { connectState, connectStore } from './connect';
 import { createState } from './create'
 
 test('Base', () => {
@@ -219,12 +219,12 @@ test('State modification delay', () => {
 
 test('Multiple instances', () => {
     const state = createState();
-    const connectStore = connectState(state);
+    const _connectStore = connectState(state);
 
     class User {
         public name = ''
         public get blog() {
-            return connectCurrent(Blog, 'blog');
+            return connectStore(Blog, 'blog');
         }
         public get log() {
             return `'${this.name}' published '${this.blog.text}'`
@@ -241,7 +241,7 @@ test('Multiple instances', () => {
         }
     }
 
-    const user = connectStore(User, 'user');
+    const user = _connectStore(User, 'user');
 
     user.$setName('jack');
     user.blog.$setText('hello world.');
@@ -279,4 +279,35 @@ test('Params', () => {
 
     assert.deepEqual(state['user?100'], { uid: 100, name: 'jack' })
     assert.deepEqual(state['user?200'], { uid: 200, name: 'tom' })
+})
+
+test.only('Call commit multiple times', () => {
+    const state = createState();
+    const connectStore = connectState(state);
+
+    class User {
+        public name = ''
+        public age = 0;
+        public text = ''
+        public $setName(name: string) {
+            this.name = name;
+            return '1'
+        }
+        public $setAge(age: number) {
+            this.age = age;
+            return '2'
+        }
+        public $setUser(name: string, age: number) {
+            const v1 = this.$setName(name);
+            const v2 = this.$setAge(age);
+            this.text = v1 + v2;
+        }
+    }
+    const user = connectStore(User, 'user');
+
+    user.$setUser('jack', 18);
+
+    assert.equal(user.name, 'jack')
+    assert.equal(user.age, 18)
+    assert.equal(user.text, '12')
 })

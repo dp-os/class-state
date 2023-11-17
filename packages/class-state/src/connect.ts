@@ -2,15 +2,16 @@ import { produce } from 'limu';
 import { State, getStateContext, StateContext } from './create';
 import { createFullPath } from './path';
 
+export type StoreParams = Record<string, any>;
 export type StoreConstructor = {
     new(...args: any[]): any;
 };
 
-export type StoreParams = Record<string, any>;
+export type StoreInstance<T> = T & { $: StoreContext<T>  }
 
 let currentStateContext: StateContext | null = null;
 
-export class StoreContext {
+export class StoreContext<T> {
     /**
      * Library private properties, not available externally
      */
@@ -18,11 +19,15 @@ export class StoreContext {
     /**
      * Library private properties, not available externally
      */
-    public _raw: any;
+    public _raw: T;
     /**
      * Library private properties, not available externally
      */
-    public _proxy: any;
+    public _proxy: StoreInstance<T>;
+    /**
+     * Is the state a draft state
+     */
+    public _drafting = false;
     /**
      * Path in state
      */
@@ -30,7 +35,7 @@ export class StoreContext {
     /**
      * State of Store
      */
-    public state: any;
+    public state: Record<string, any>;
     public connecting: boolean;
     public constructor(stateContext: StateContext, raw: any, state: Record<string, any>, fullPath: string) {
 
@@ -74,9 +79,9 @@ export class StoreContext {
 
 export function connectState(state: State) {
     const stateContext = getStateContext(state);
-    return <T extends StoreConstructor>(Store: T, name: string, ...params: ConstructorParameters<T>): InstanceType<T> & { $: StoreContext } => {
+    return <T extends StoreConstructor>(Store: T, name: string, ...params: ConstructorParameters<T>): StoreInstance<InstanceType<T>> => {
         const fullPath = createFullPath(name, params[0]);
-        let storeContext: StoreContext | null = stateContext.get(fullPath);
+        let storeContext: StoreContext<T> | null = stateContext.get(fullPath);
         if (!storeContext) {
             const store = new Store(...params);
             let storeState;
@@ -87,11 +92,11 @@ export function connectState(state: State) {
             }
             storeContext = new StoreContext(stateContext, store, storeState, fullPath);
         }
-        return storeContext._proxy;
+        return storeContext._proxy as any;
     }
 }
 
-export function connectCurrent<T extends StoreConstructor>(Store: T, name: string, ...params: ConstructorParameters<T>) {
+export function connectStore<T extends StoreConstructor>(Store: T, name: string, ...params: ConstructorParameters<T>) {
     if (!currentStateContext) {
         throw new Error('No state context found');
     }
@@ -99,8 +104,7 @@ export function connectCurrent<T extends StoreConstructor>(Store: T, name: strin
 }
 
 
-
-function proxyClass(storeContext: StoreContext) {
+function proxyClass(storeContext: StoreContext<any>) {
     return new Proxy(storeContext._raw, {
         get(target, p, receiver) {
             if (p === '$') {
@@ -109,7 +113,7 @@ function proxyClass(storeContext: StoreContext) {
             const state = storeContext.state;
             const preStateContext = currentStateContext;
             currentStateContext = storeContext._stateContext;
-            if (p in state) {
+            if (typeof p === 'string' && p in state) {
                 if (!storeContext.connecting && currentStateContext) {
                     currentStateContext.depend();
                 }
@@ -124,7 +128,7 @@ function proxyClass(storeContext: StoreContext) {
             return result;
         },
         set(target, p, newValue, receiver) {
-            if (p in storeContext.state) {
+            if (typeof p === 'string' && p in storeContext.state) {
                 storeContext.state[p] = newValue;
                 return true;
             }
@@ -133,22 +137,28 @@ function proxyClass(storeContext: StoreContext) {
     })
 }
 
-function proxyCommit(commitFunc: Function, connectContext: StoreContext) {
+function proxyCommit(commitFunc: Function, connectContext: StoreContext<any>) {
     return function proxyCommit(...args: any) {
+
+        if (connectContext._drafting) {
+            return commitFunc.apply(connectContext._proxy, args)
+        }
+
         const prevState = connectContext.state;
         let result;
         const nextState = produce(prevState, (draft) => {
             try {
+                connectContext._drafting = true;
                 connectContext.state = draft;
                 result = commitFunc.apply(connectContext._proxy, args)
-                connectContext.state = prevState;
             } catch (e) {
-                connectContext.state = prevState;
                 throw e;
+            } finally {
+                connectContext.state = prevState;
+                connectContext._drafting = false;
             }
         });
         connectContext._setState(nextState);
-
         return result;
     }
 }

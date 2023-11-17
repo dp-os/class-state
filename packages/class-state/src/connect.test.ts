@@ -281,7 +281,7 @@ test('Params', () => {
     assert.deepEqual(state['user?200'], { uid: 200, name: 'tom' })
 })
 
-test.only('Call commit multiple times', () => {
+test('Call commit multiple times', () => {
     const state = createState();
     const connectStore = connectState(state);
 
@@ -310,4 +310,20 @@ test.only('Call commit multiple times', () => {
     assert.equal(user.name, 'jack')
     assert.equal(user.age, 18)
     assert.equal(user.text, '12')
+})
+
+test('No a submit function modification state', () => {
+    const state = createState();
+    const connectStore = connectState(state);
+
+    class User {
+        public name = ''
+        public setName(name: string) {
+            this.name = name;
+        }
+    }
+    const user = connectStore(User, 'user');
+    assert.Throw(() => {
+        user.setName('jack');
+    }, `Change the state in the agreed commit function, For example, $name('jack')`)
 })

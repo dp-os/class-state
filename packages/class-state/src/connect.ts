@@ -129,8 +129,11 @@ function proxyClass(storeContext: StoreContext<any>) {
         },
         set(target, p, newValue, receiver) {
             if (typeof p === 'string' && p in storeContext.state) {
-                storeContext.state[p] = newValue;
-                return true;
+                if (storeContext._drafting) {
+                    storeContext.state[p] = newValue;
+                    return true;
+                }
+                throw new Error(`Change the state in the agreed commit function, For example, $${p}('${String(newValue)}')`)
             }
             return Reflect.set(target, p, newValue, receiver);
         }

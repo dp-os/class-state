@@ -31,6 +31,7 @@ export class StoreContext {
      * State of Store
      */
     public state: any;
+    public connecting: boolean;
     public constructor(stateContext: StateContext, raw: any, state: Record<string, any>, fullPath: string) {
 
         this._stateContext = stateContext;
@@ -41,16 +42,21 @@ export class StoreContext {
 
         this.state = state;
         this.fullPath = fullPath;
+        this.connecting = stateContext.hasState(fullPath);
     }
     /**
      * Library private method, not available externally
      */
     public _setState(nextState: any) {
         if (this.state === nextState) return;
-        this.state = nextState;
-        const { _stateContext } = this;
+        const { _stateContext, fullPath } = this;
         if (_stateContext) {
-            _stateContext.updateState(this.fullPath, nextState);
+            _stateContext.updateState(fullPath, nextState);
+            this.state = _stateContext.state[fullPath];
+            this.connecting  = true;
+        } else {
+            this.state = nextState;
+            this.connecting  = false
         }
         this._proxy = proxyClass(this);
     }
@@ -101,15 +107,18 @@ function proxyClass(storeContext: StoreContext) {
                 return storeContext;
             }
             const state = storeContext.state;
-            if (p in state) {
-                return state[p];
-            }
             const preStateContext = currentStateContext;
             currentStateContext = storeContext._stateContext;
+            if (p in state) {
+                if (!storeContext.connecting && currentStateContext) {
+                    currentStateContext.depend();
+                }
+                return state[p];
+            }
             const result = Reflect.get(target, p, receiver);
             currentStateContext = preStateContext;
             if (typeof result === 'function' && typeof p === 'string' && p.startsWith('$')) {
-                return proxyCommit(result, storeContext)
+                return proxyCommit(result, storeContext);
             }
 
             return result;
@@ -120,7 +129,7 @@ function proxyClass(storeContext: StoreContext) {
                 return true;
             }
             return Reflect.set(target, p, newValue, receiver);
-        },
+        }
     })
 }
 

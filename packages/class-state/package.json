@@ -1,6 +1,6 @@
 {
-  "name": "genesis-store",
-  "version": "0.1.10-alpha.1",
+  "name": "class-state",
+  "version": "0.0.0",
   "type": "module",
   "types": "./dist/index.d.ts",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "limu": "^3.7.3"
   },
   "devDependencies": {
-    "vue2": "npm:vue@^2.7.14",
+    "vue2": "npm:vue@^2.7.15",
+    "vue3": "npm:vue@^3.3.8",
     "unbuild": "^1.2.1"
   }
 }

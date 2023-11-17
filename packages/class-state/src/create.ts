@@ -1,4 +1,4 @@
-import type { StoreContext} from './connect';
+import type { StoreContext } from './connect';
 export interface State {
     /**
      * Just for the TS type to be checked correctly, this attribute does not exist in actual operation
@@ -6,18 +6,55 @@ export interface State {
     'https://github.com/dp-os/class-state': true;
     [x: string]: any
 }
+
+
 export interface StateOptions {
     /**
      * When rendering on the server, it is necessary to pass in the state
      */
-    state?: Record<string, any>;
+    state?: any;
+    proxy?: (target: any) => any;
+    set?: (state: State, name: string, value: any) => void;
+    del?: (state: State, name: string) => void;
 }
+
+interface ModifyCount {
+    value: number;
+}
+
+const DEFAULT_OPTIONS = {
+    proxy: (target: any) => target,
+    set: (state: State, name: string, value: any) => {
+        state[name] = value;
+    },
+    del: (state: State, name: string) => {
+        delete state[name];
+    }
+} satisfies StateOptions;
 
 export class StateContext {
     public readonly state: State;
     private readonly storeContext: Map<string, StoreContext> = new Map<string, StoreContext>();
-    public constructor (state: State) {
-        this.state = state;
+    private _options: Omit<Required<StateOptions>, 'state'>
+    private _count: ModifyCount;
+    public constructor(options: StateOptions) {
+        const state = options.state ? options.state : {}
+
+        const _options = this._options = {
+            proxy: options.proxy ?? DEFAULT_OPTIONS.proxy,
+            set: options.set?? DEFAULT_OPTIONS.set,
+            del: options.del?? DEFAULT_OPTIONS.del
+        }
+
+        this._count = _options.proxy({ value: 0 });
+        this.state = _options.proxy(state);
+        this._options = _options;
+    }
+    public depend() {
+        return this._count.value;
+    }
+    public hasState(name: string): boolean {
+        return name in this.state;
     }
     public get(name: string): StoreContext | null {
         return this.storeContext.get(name) || null;
@@ -26,11 +63,18 @@ export class StateContext {
         this.storeContext.set(name, storeContext);
     }
     public updateState(name: string, nextState: any) {
-        this.state[name] = nextState;
+        const { state, _options } = this;
+        if (name in state) {
+            state[name] = _options.proxy(nextState);
+        } else {
+            _options.set(state, name, nextState);
+            this._count.value++;
+        }
     }
     public del(name: string) {
-        delete this.state[name]
+        const { _options } = this;
         this.storeContext.delete(name);
+        _options.del(this.state, name);
     }
 }
 
@@ -48,8 +92,9 @@ export function getStateContext(state: State): StateContext {
 
 
 export function createState(options: StateOptions = {}): State {
-    const state: any = options.state ? options.state : {};
+    const stateContext = new StateContext(options);
 
-    setStateContext(state, new StateContext(state))
-    return state;
+    setStateContext(stateContext.state, stateContext)
+
+    return stateContext.state;
 }

@@ -1,2 +1,2 @@
 export { createState, type State } from './create';
-export { connectState } from './connect';
+export { connectState, connectStore } from './connect';

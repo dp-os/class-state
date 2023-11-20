@@ -15,7 +15,7 @@
     "build": "tsc --noEmit && unbuild"
   },
   "dependencies": {
-    "limu": "^3.7.3",
+    "immer": "^10.0.3",
     "query-string": "^8.1.0"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import { produce } from 'limu';
+import { produce } from 'immer';
 import { State, getStateContext, StateContext } from './create';
 import { createFullPath } from './path';
 

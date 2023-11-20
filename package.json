@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest",
     "build:packages": "pnpm -r --filter='./packages/*' run build",
-    "coverage": "pnpm run build:packages && vitest run --coverage"
+    "coverage": "pnpm run build:packages && vitest run --coverage",
+    "release": "pnpm build:packages && lerna publish --registry=https://registry.npmjs.org --force-publish --exact"
   },
   "keywords": [],
   "author": "",

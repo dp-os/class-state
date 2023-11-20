@@ -34,7 +34,7 @@ const DEFAULT_OPTIONS = {
 
 export class StateContext {
     public readonly state: State;
-    private readonly storeContext: Map<string, StoreContext> = new Map<string, StoreContext>();
+    private readonly storeContext: Map<string, StoreContext<any>> = new Map<string, StoreContext<any>>();
     private _options: Omit<Required<StateOptions>, 'state'>
     private _count: ModifyCount;
     public constructor(options: StateOptions) {
@@ -56,10 +56,10 @@ export class StateContext {
     public hasState(name: string): boolean {
         return name in this.state;
     }
-    public get(name: string): StoreContext | null {
+    public get(name: string): StoreContext<any> | null {
         return this.storeContext.get(name) || null;
     }
-    public add(name: string, storeContext: StoreContext) {
+    public add(name: string, storeContext: StoreContext<any>) {
         this.storeContext.set(name, storeContext);
     }
     public updateState(name: string, nextState: any) {

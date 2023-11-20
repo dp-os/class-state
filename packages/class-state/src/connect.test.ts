@@ -158,6 +158,7 @@ test('Disconnect', () => {
 
     user.$.disconnect();
     assert.isUndefined(state.user)
+    // @ts-ignore
     assert.isNull(user.$._stateContext);
 })
 test('Preset state', () => {
@@ -326,4 +327,19 @@ test('No a submit function modification state', () => {
     assert.Throw(() => {
         user.setName('jack');
     }, `Change the state in the agreed commit function, For example, $name('jack')`)
+})
+
+test('Equal submit function', () => {
+    const state = createState();
+    const connectStore = connectState(state);
+
+    class User {
+        public name = ''
+        public $setName(name: string) {
+            this.name = name;
+        }
+    }
+    const user = connectStore(User, 'user');
+
+    assert.equal(user.$setName, user.$setName);
 })

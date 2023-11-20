@@ -7,19 +7,19 @@ export type StoreConstructor = {
     new(...args: any[]): any;
 };
 
-export type StoreInstance<T> = T & { $: StoreContext<T>  }
+export type StoreInstance<T extends {}> = T & { $: StoreContext<T>  }
 
 let currentStateContext: StateContext | null = null;
 
-export class StoreContext<T> {
+export class StoreContext<T extends {}> {
     /**
      * Library private properties, not available externally
      */
-    public _stateContext: StateContext | null;
+    private _stateContext: StateContext | null;
     /**
      * Library private properties, not available externally
      */
-    public _raw: T;
+    private _raw: T;
     /**
      * Library private properties, not available externally
      */
@@ -27,7 +27,11 @@ export class StoreContext<T> {
     /**
      * Is the state a draft state
      */
-    public _drafting = false;
+    private _drafting = false;
+    /**
+     * Is the state a draft state
+     */
+    private _cacheCommit = new Map<Function, Function>()
     /**
      * Path in state
      */
@@ -43,7 +47,7 @@ export class StoreContext<T> {
         stateContext.add(fullPath, this);
 
         this._raw = raw;
-        this._proxy = proxyClass(this);
+        this._proxy = this._createProxyClass();
 
         this.state = state;
         this.fullPath = fullPath;
@@ -62,7 +66,7 @@ export class StoreContext<T> {
             this.state = nextState;
             this.connecting  = false
         }
-        this._proxy = proxyClass(this);
+        this._proxy = this._createProxyClass();
     }
     /**
      * Disconnect from state and release memory
@@ -72,6 +76,74 @@ export class StoreContext<T> {
         if (_stateContext) {
             _stateContext.del(this.fullPath);
             this._stateContext = null;
+        }
+    }
+    private _createProxyClass () {
+        const storeContext  =this;
+        return new Proxy(this._raw, {
+            get(target, p, receiver) {
+                if (p === '$') {
+                    return storeContext;
+                }
+                const state = storeContext.state;
+                const preStateContext = currentStateContext;
+                currentStateContext = storeContext._stateContext;
+                if (typeof p === 'string' && p in state) {
+                    if (!storeContext.connecting && currentStateContext) {
+                        currentStateContext.depend();
+                    }
+                    return state[p];
+                }
+                const result = Reflect.get(target, p, receiver);
+                currentStateContext = preStateContext;
+                if (typeof result === 'function' && typeof p === 'string' && p.startsWith('$')) {
+                    let func = storeContext._cacheCommit.get(result);
+                    if (!func) {
+                        func = storeContext._createProxyCommit(result);
+                        storeContext._cacheCommit.set(result, func);
+                    }
+                    return func
+                }
+    
+                return result;
+            },
+            set(target, p, newValue, receiver) {
+                if (typeof p === 'string' && p in storeContext.state) {
+                    if (storeContext._drafting) {
+                        storeContext.state[p] = newValue;
+                        return true;
+                    }
+                    throw new Error(`Change the state in the agreed commit function, For example, $${p}('${String(newValue)}')`)
+                }
+                return Reflect.set(target, p, newValue, receiver);
+            }
+        }) as any
+    }
+    private _createProxyCommit (commitFunc: Function) {
+        const connectContext  = this;
+        return function proxyCommit(...args: any) {
+
+            if (connectContext._drafting) {
+                return commitFunc.apply(connectContext._proxy, args)
+            }
+    
+            const prevState = connectContext.state;
+            let result;
+            const nextState = produce(prevState, (draft) => {
+                connectContext._drafting = true;
+                connectContext.state = draft;
+                try {
+                    result = commitFunc.apply(connectContext._proxy, args)
+                    connectContext._drafting = false;
+                    connectContext.state = prevState;
+                } catch (e) {
+                    connectContext._drafting = false;
+                    connectContext.state = prevState;
+                    throw e;
+                }
+            });
+            connectContext._setState(nextState);
+            return result;
         }
     }
 }
@@ -102,66 +174,3 @@ export function connectStore<T extends StoreConstructor>(Store: T, name: string,
     return connectState(currentStateContext.state)(Store, name, ...params);
 }
 
-
-function proxyClass(storeContext: StoreContext<any>) {
-    return new Proxy(storeContext._raw, {
-        get(target, p, receiver) {
-            if (p === '$') {
-                return storeContext;
-            }
-            const state = storeContext.state;
-            const preStateContext = currentStateContext;
-            currentStateContext = storeContext._stateContext;
-            if (typeof p === 'string' && p in state) {
-                if (!storeContext.connecting && currentStateContext) {
-                    currentStateContext.depend();
-                }
-                return state[p];
-            }
-            const result = Reflect.get(target, p, receiver);
-            currentStateContext = preStateContext;
-            if (typeof result === 'function' && typeof p === 'string' && p.startsWith('$')) {
-                return proxyCommit(result, storeContext);
-            }
-
-            return result;
-        },
-        set(target, p, newValue, receiver) {
-            if (typeof p === 'string' && p in storeContext.state) {
-                if (storeContext._drafting) {
-                    storeContext.state[p] = newValue;
-                    return true;
-                }
-                throw new Error(`Change the state in the agreed commit function, For example, $${p}('${String(newValue)}')`)
-            }
-            return Reflect.set(target, p, newValue, receiver);
-        }
-    })
-}
-
-function proxyCommit(commitFunc: Function, connectContext: StoreContext<any>) {
-    return function proxyCommit(...args: any) {
-
-        if (connectContext._drafting) {
-            return commitFunc.apply(connectContext._proxy, args)
-        }
-
-        const prevState = connectContext.state;
-        let result;
-        const nextState = produce(prevState, (draft) => {
-            connectContext._drafting = true;
-            connectContext.state = draft;
-            try {
-                result = commitFunc.apply(connectContext._proxy, args)
-                connectContext._drafting = false;
-                connectContext.state = prevState;
-            } catch (e) {
-                connectContext._drafting = false;
-                connectContext.state = prevState;
-                throw e;
-            }
-        });
-        connectContext._setState(nextState);
-        return result;
-    }
-}

@@ -58,14 +58,11 @@ export class StoreContext<T extends {}> {
      */
     public _setState(nextState: Record<string, any>) {
         const { _stateContext, fullPath } = this;
+        this.state = nextState;
         if (_stateContext) {
             _stateContext.updateState(fullPath, nextState);
-            this.state = _stateContext.state[fullPath];
-            this.connecting  = true;
-        } else {
-            this.state = nextState;
-            this.connecting  = false
         }
+        this.connecting  = !!_stateContext
         this._proxy = this._createProxyClass();
     }
     /**
@@ -84,18 +81,23 @@ export class StoreContext<T extends {}> {
             get(target, p, receiver) {
                 if (p === '$') {
                     return storeContext;
-                }
-                const state = storeContext.state;
-                const preStateContext = currentStateContext;
-                currentStateContext = storeContext._stateContext;
-                if (typeof p === 'string' && p in state) {
-                    if (!storeContext.connecting && currentStateContext) {
-                        currentStateContext.depend();
+                } else if (typeof p === 'string') {
+                    const state = storeContext.state;
+                    if (p in state) {
+                        const stateContext = storeContext._stateContext;
+                        if (stateContext) {
+                            if (storeContext.connecting) {
+                                stateContext.depend(storeContext.fullPath);
+                            } else {
+                                stateContext.depend();
+                            }
+                        }
+                        return state[p];
                     }
-                    return state[p];
                 }
+                currentStateContext = storeContext._stateContext;
                 const result = Reflect.get(target, p, receiver);
-                currentStateContext = preStateContext;
+                currentStateContext = null;
                 if (typeof result === 'function' && typeof p === 'string' && p.startsWith('$')) {
                     let func = storeContext._cacheCommit.get(result);
                     if (!func) {

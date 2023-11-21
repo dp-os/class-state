@@ -3,8 +3,8 @@ export interface State {
     /**
      * Just for the TS type to be checked correctly, this attribute does not exist in actual operation
      */
-    'https://github.com/dp-os/class-state': true;
-    [x: string]: any
+    'https://github.com/dp-os/class-state': Record<string, any>;
+    [x: string]: Record<string, any>
 }
 
 
@@ -50,8 +50,12 @@ export class StateContext {
         this.state = _options.proxy(state);
         this._options = _options;
     }
-    public depend() {
-        return this._count.value;
+    public depend(fullPath?: string): void {
+        if (fullPath) {
+            this.state[fullPath];
+        } else {
+            this._count.value;
+        }
     }
     public hasState(name: string): boolean {
         return name in this.state;

@@ -1,13 +1,11 @@
-import Vue, { reactive, watch, nextTick } from 'vue2';
+import { reactive, watch, nextTick } from 'vue3';
 import { test, assert } from 'vitest'
 import { connectState } from './connect';
 import { createState } from './create'
 
 test('base', async () => {
     const state = createState({
-        proxy: reactive,
-        set: Vue.set,
-        del: Vue.delete
+        proxy: reactive
     })
     const connectStore = connectState(state)
     class User {
@@ -34,9 +32,7 @@ test('base', async () => {
 
 test('base2', async () => {
     const state = createState({
-        proxy: reactive,
-        set: Vue.set,
-        del: Vue.delete
+        proxy: reactive
     })
     const connectStore = connectState(state)
     class User {

@@ -343,3 +343,23 @@ test('Equal submit function', () => {
 
     assert.equal(user.$setName, user.$setName);
 })
+
+test('State Restore', () => {
+    const state = createState({
+        state: {
+            user: {
+                name: 'jack'
+            }
+        }
+    });
+    const connectStore = connectState(state);
+
+    class User {
+        public name = ''
+        public $setName(name: string) {
+            this.name = name;
+        }
+    }
+    const user = connectStore(User, 'user');
+    assert.equal(user.name, 'jack')
+})

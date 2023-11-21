@@ -50,11 +50,11 @@ export class StateContext {
         this.state = _options.proxy(state);
         this._options = _options;
     }
-    public depend(fullPath?: string): void {
+    public depend(fullPath?: string): unknown {
         if (fullPath) {
-            this.state[fullPath];
+            return this.state[fullPath];
         } else {
-            this._count.value;
+            return this._count.value;
         }
     }
     public hasState(name: string): boolean {

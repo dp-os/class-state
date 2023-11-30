@@ -10,6 +10,17 @@ export type StoreConstructor = {
 export type StoreInstance<T extends {}> = T & { $: StoreContext<T>  }
 
 let currentStateContext: StateContext | null = null;
+/**
+ * Called after class created
+ */
+export const LIFE_CYCLE_CREATED = Symbol('created');
+/**
+ * Called after class dispose
+ */
+export const LIFE_CYCLE_DISPOSE = Symbol('dispose');
+
+function noon() {
+    }
 
 export class StoreContext<T extends {}> {
     /**
@@ -74,6 +85,11 @@ export class StoreContext<T extends {}> {
             _stateContext.del(this.fullPath);
             this._stateContext = null;
         }
+        const store = this._raw as any;
+        if (typeof store[LIFE_CYCLE_DISPOSE] === 'function') {
+            store[LIFE_CYCLE_DISPOSE]();
+        }
+        this.disconnect = noon
     }
     private _createProxyClass () {
         const storeContext  =this;
@@ -164,6 +180,9 @@ export function connectState(state: State) {
                 storeState = { ...store };
             }
             storeContext = new StoreContext(stateContext, store, storeState, fullPath);
+            if (typeof store[LIFE_CYCLE_CREATED] === 'function') {
+                store[LIFE_CYCLE_CREATED]();
+            }
         }
         return storeContext._proxy as any;
     }
